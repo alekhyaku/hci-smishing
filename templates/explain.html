@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explanation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .image-container {
+            flex: 1;
+            padding: 20px;
+        }
+        .explanation-container {
+            flex: 1;
+            padding: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="image-container">
+            <h2>Screenshot</h2>
+            <img src="{{ url_for('serve_image', filename=filename) }}" alt="Screenshot">
+        </div>
+        <div class="explanation-container">
+            <h2>Explanation</h2>
+            <p><strong>Classification:</strong> {{ classification }}</p>
+            <p><strong>Explanation:</strong> {{ explanation }}</p>
+        </div>
+    </div>
+</body>
+</html>

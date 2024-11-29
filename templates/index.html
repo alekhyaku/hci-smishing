@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Screenshot</title>
+    <!-- Google Fonts Link for Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Minimalist Color Palette */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #fafafa; /* Very light gray for background */
+            color: #333; /* Dark gray for text */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            color: #222; /* Slightly darker gray for headings */
+        }
+
+        /* Navbar - dark gray background */
+        .navbar {
+            background-color: #333; /* Dark gray navbar */
+        }
+
+        .navbar-nav .nav-link {
+            color: #fff !important;
+            font-weight: bold;
+            padding: 10px 15px;
+            transition: background-color 0.3s ease;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background-color: #555; /* Darker gray on hover */
+        }
+
+        /* Content container */
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        .content-container {
+            width: 80%; /* 2/3rds of the screen width */
+            height: 80%; /* 2/3rds of the viewport height */
+            padding: 40px;
+            background-color: #fff; /* White background for form area */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+            border-radius: 8px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .content-container h1 {
+            font-size: 2rem;
+            color: #222;
+            padding: 10px 0;
+        }
+
+        .form-container {
+            width: 50%; /* Set form width to 50% of the container */
+            margin: 0 auto; /* Center the form horizontally */
+            padding: 10px 0;
+        }   
+
+        .custom-file-label {
+            font-size: 1rem;
+            color: #777; /* Light gray for file input labels */
+        }
+
+        .btn-primary {
+            padding: 10px 20px;
+            background-color: #007bff; /* Soft blue button */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 10px auto; /* Center the button horizontally */
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3; /* Slightly darker blue on hover */
+        }
+
+        .btn-secondary {
+            padding: 10px 20px;
+            background-color: #ddd; /* Light gray for secondary buttons */
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #bbb; /* Darker gray on hover */
+        }
+        
+        #status {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px; /* Adjust as needed */
+            margin: 0 auto; /* Center the container */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .message-container {
+            width: 48%; /* Adjust as needed */
+        }
+
+        .image-container {
+            width: 48%; /* Adjust as needed */
+        }
+
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .explain-button-container {
+            margin-top: 20px; /* Add some space above the button */
+        }
+
+        /* Responsive design adjustments */
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .message-container, .image-container {
+                width: 100%;
+                margin-bottom: 20px; /* Add some space between the elements */
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark w-100">
+        <div class="container-fluid justify-content-center">
+            <a class="navbar-brand" href="{{ url_for('home') }}">Home</a>
+            <a class="navbar-brand" href="{{ url_for('gallery') }}">Gallery</a>
+        </div>
+    </nav>
+    <div class="content-wrapper">
+        <div class="content-container">
+            <h1>Upload Screenshot</h1>
+            <div class="form-container">
+                <!-- Ensure form uses POST method and has correct enctype -->
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group custom-file">
+                        <label class="custom-file-label" for="file">Select Screenshot</label>
+                        <input type="file" class="custom-file-input" name="file" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3" style="display: block">Upload</button>
+                </form>
+                <p id="status" class="mt-3">{{ status_message }}</p>
+                {% if message %}
+                <div class="content">
+                    <div id="uploaded-image" class="image-container">
+                        <img src="{{ url_for('serve_image', filename=filename) }}" alt="Uploaded Image">
+                    </div>
+                    <div id="message" class="message-container">
+                        <h2>Message</h2>
+                        <p><strong>Sender:</strong> {{ message['Sender'] }}</p>
+                        <p><strong>Message:</strong> {{ message['Text_Message'] }}</p>
+                    </div>
+                </div>
+                <div class="explain-button-container">
+                    <a href="{{ url_for('explain', filename=filename) }}" class="btn btn-primary mt-3 explain-button">Explain</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        // Bootstrap custom file input label update
+        $(document).ready(function() {
+            bsCustomFileInput.init();
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bs-custom-file-input/dist/bs-custom-file-input.min.js"></script>
+</body>
+</html>
