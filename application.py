@@ -48,6 +48,11 @@ def init_db():
     )
     cursor = conn.cursor()
     cursor.execute('''
+        DROP TABLE IF EXISTS images CASCADE;
+        DROP TABLE IF EXISTS results CASCADE;
+        DROP TABLE IF EXISTS lineresults CASCADE;
+    ''')
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS images (
             filename TEXT NOT NULL PRIMARY KEY,
             data BYTEA NOT NULL
