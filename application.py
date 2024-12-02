@@ -58,9 +58,9 @@ def init_db():
             id SERIAL PRIMARY KEY,
             filename TEXT NOT NULL,
             line_text TEXT,
-            bounding_box JSON,
+            bounding_box TEXT,
             word_text TEXT,
-            word_bounding_polygon JSON,
+            word_bounding_polygon TEXT,
             confidence REAL
         )
     ''')
@@ -69,7 +69,7 @@ def init_db():
             id SERIAL PRIMARY KEY,
             filename TEXT NOT NULL,
             line_text TEXT,
-            bounding_box JSON
+            bounding_box TEXT
         )
     ''')
     conn.commit()
