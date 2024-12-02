@@ -151,7 +151,7 @@ def filter_single_db(image_name):
         user=DB_USER,
         password=DB_PASSWORD
     )
-    data = pd.read_sql_query("SELECT * FROM lineresults WHERE filename = ?", conn, params=(image_name,))
+    data = pd.read_sql_query("SELECT * FROM lineresults WHERE filename = %s", conn, params=(image_name,))
     all_data = pd.read_sql_query("SELECT * FROM lineresults", conn)
     all_data_result = pd.read_sql_query("SELECT * FROM results", conn)
     # That should return all the rows with the filename

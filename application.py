@@ -84,7 +84,7 @@ def store_image_in_db(filename, data):
         password=DB_PASSWORD
     )
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO images (filename, data) VALUES (?, ?)', (filename, data))
+    cursor.execute('INSERT INTO images (filename, data) VALUES (%s, %s)', (filename, data))
     conn.commit()
     conn.close()
 
@@ -97,7 +97,7 @@ def get_image_from_db(filename):
         password=DB_PASSWORD
     )
     cursor = conn.cursor()
-    cursor.execute('SELECT data FROM images WHERE filename = ?', (filename,))
+    cursor.execute('SELECT data FROM images WHERE filename = %s', (filename,))
     row = cursor.fetchone()
     conn.close()
     if row:
@@ -177,7 +177,7 @@ def process_result(result, filename):
             for word in line.words:
                 cursor.execute('''
                     INSERT INTO results (filename, line_text, bounding_box, word_text, word_bounding_polygon, confidence)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 ''', (
                     filename,
                     line.text,
@@ -193,7 +193,7 @@ def process_result(result, filename):
         for line in result.read.blocks[0].lines:
             cursor.execute('''
                 INSERT INTO lineresults (filename, line_text, bounding_box)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             ''', (
                 filename,
                 line.text,
