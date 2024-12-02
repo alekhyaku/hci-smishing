@@ -1,16 +1,17 @@
-from flask import Flask, render_template, request, send_from_directory, session, jsonify
+from flask import Flask, render_template, request, send_from_directory, session, send_file
 from werkzeug.utils import secure_filename
-import requests
-import shutil
 import random
 import os
-import csv
+import io
+import psycopg2
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from azure.core.credentials import AzureKeyCredential
-from textprocessing import text_process  # Import the function from the other script
+from textprocessing import text_process, text_process_db  # Import the function from the other script
 import pandas as pd
 import ast
+import sqlite3
+import json
 import numpy as np
 # from genexpla import generate_explanation
 
@@ -28,27 +29,114 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
 
+# Database connection details
+DB_HOST = os.environ.get('DB_HOST')
+DB_NAME = os.environ.get('DB_NAME')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+
 # Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def init_db():
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    cursor.execute(''' 
+        CREATE TABLE IF NOT EXISTS images (
+            filename TEXT NOT NULL PRIMARY KEY,
+            data BLOB NOT NULL
+        )   
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            line_text TEXT,
+            bounding_box TEXT,
+            word_text TEXT,
+            word_bounding_polygon TEXT,
+            confidence REAL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS lineresults (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            line_text TEXT,
+            bounding_box TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def store_image_in_db(filename, data):
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO images (filename, data) VALUES (?, ?)', (filename, data))
+    conn.commit()
+    conn.close()
+
+# Retrieve image from the database
+def get_image_from_db(filename):
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    cursor.execute('SELECT data FROM images WHERE filename = ?', (filename,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return row[0]
+    return None
+
+def clear_db():
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM images')
+    cursor.execute('DELETE FROM results')
+    cursor.execute('DELETE FROM lineresults')
+    conn.commit()
+    conn.close()
+
 def image_to_text(filename):
-    # Ensure the images directory exists
-    if not os.path.exists(app.config['IMAGES_FOLDER']):
-        os.makedirs(app.config['IMAGES_FOLDER'])
+     # Retrieve the image data from the database
+    image_data = get_image_from_db(filename)
+    if not image_data:
+        print("Image not found in the database")
+        return
 
-    # Copy the image from the uploads directory to the images directory
-    upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    image_path = os.path.join(app.config['IMAGES_FOLDER'], filename)
-    shutil.copy(upload_path, image_path)
+    print("Image retrieved successfully from the database!")
 
-    print("Image copied successfully!")
-    # print()
-
-    print("Image downloaded successfully!")
-
-    # check if the image name already has a result in the results folder
-    if os.path.exists(os.path.join(app.config['RESULTS_FOLDER'], f"{os.path.splitext(filename)[0]}_results.csv")):
+    # Check if the image name already has a result in the results database
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM results WHERE filename = %s', (filename,))
+    if cursor.fetchone():
         print("Results already exist for this image")
         return
 
@@ -68,59 +156,51 @@ def image_to_text(filename):
         credential=AzureKeyCredential(key)
     )
 
-    # Load image to analyze into a 'bytes' object
-    with open(image_path, "rb") as f:
-        image_data = f.read()
+    # Analyze the image data
+    result = client.analyze(io.BytesIO(image_data), visual_features=[VisualFeatures.READ])
 
-    # Check if the image data is valid
-    if not image_data:
-        print("Invalid image data")
-        return
+    # Process the result
+    process_result(result, filename)
 
-    # Extract text (OCR) from an image stream. This will be a synchronously (blocking) call.
-    result = client.analyze(
-        image_data=image_data,
-        visual_features=[VisualFeatures.READ]
+def process_result(result, filename):
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
     )
-
-    # Print text (OCR) analysis results to the console
-    print("Image analysis results:")
-    print(" Read:")
-
-     # Write OCR results to a CSV file
-    csv_filename = os.path.join(app.config['RESULTS_FOLDER'], f"{os.path.splitext(filename)[0]}_results.csv")
-    with open(csv_filename, "a", newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        # Write header only if the file is empty
-        if csvfile.tell() == 0:
-            csvwriter.writerow(["Line Text", "Bounding Box", "Word Text", "Word Bounding Polygon", "Confidence"])
-        if result.read is not None:
-            for line in result.read.blocks[0].lines:
-                print(f"   Line: '{line.text}', Bounding box {line.bounding_polygon}")
-                for word in line.words:
-                    csvwriter.writerow([
-                        line.text,
-                        line.bounding_polygon,
-                        word.text,
-                        word.bounding_polygon,
-                        f"{word.confidence:.4f}"
-                    ])
-                    print(f"``     Word: '{word.text}', Bounding polygon {word.bounding_polygon}, Confidence {word.confidence:.4f}")
-
-    # Write line results to a separate CSV file
-    line_csv_filename = os.path.join(app.config['RESULTS_FOLDER'], f"{os.path.splitext(filename)[0]}_line_results.csv")
-    with open(line_csv_filename, "a", newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        # Write header only if the file is empty
-        if csvfile.tell() == 0:
-            csvwriter.writerow(["Line Text", "Bounding Box"])
-        if result.read is not None:
-            for line in result.read.blocks[0].lines:
-                csvwriter.writerow([
+    cursor = conn.cursor()
+    # Example processing logic
+    if result.read is not None:
+        for line in result.read.blocks[0].lines:
+            print(f"   Line: '{line.text}', Bounding box {line.bounding_polygon}")
+            for word in line.words:
+                cursor.execute('''
+                    INSERT INTO results (filename, line_text, bounding_box, word_text, word_bounding_polygon, confidence)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    filename,
                     line.text,
-                    line.bounding_polygon
-                ])
+                    str(line.bounding_polygon),
+                    word.text,
+                    str(word.bounding_polygon),
+                    word.confidence
+                ))
+                print(f"     Word: '{word.text}', Bounding polygon {word.bounding_polygon}, Confidence {word.confidence:.4f}")
+    conn.commit()
 
+    if result.read is not None:
+        for line in result.read.blocks[0].lines:
+            cursor.execute('''
+                INSERT INTO lineresults (filename, line_text, bounding_box)
+                VALUES (?, ?, ?)
+            ''', (
+                filename,
+                line.text,
+                str(line.bounding_polygon)
+            ))
+    conn.commit()
+    conn.close()
 
 def get_processed_quotes(image_name):
     # Main program
@@ -140,14 +220,15 @@ def home():
         file = request.files.get('file')
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['IMAGES_FOLDER'], filename)
-            if os.path.exists(file_path):
+            # file_path = os.path.join(app.config['IMAGES_FOLDER'], filename)
+            file_data = file.read()
+            if get_image_from_db(filename):
                 status_message = "File with the same name already exists. Please rename your file and try again."
             else:
-                file.save(f'{app.config["UPLOAD_FOLDER"]}/{filename}')
+                store_image_in_db(filename, file_data)
                 image_to_text(filename)
-                line_csv_filename = os.path.join(app.config['RESULTS_FOLDER'], f"{os.path.splitext(filename)[0]}_line_results.csv")
-                df = text_process(line_csv_filename)  # Call the function and get the DataFrame
+                # line_csv_filename = os.path.join(app.config['RESULTS_FOLDER'], f"{os.path.splitext(filename)[0]}_line_results.csv")
+                df = text_process_db(filename)  # Call the function and get the DataFrame
                 message = df.iloc[0].to_dict()  # Convert the single row DataFrame to a dictionary
                 session['message'] = message  # Store the message in the session
                 status_message = "File uploaded successfully!"
@@ -250,11 +331,17 @@ def explain(filename):
 
 @app.route('/images/<filename>')
 def serve_image(filename):
-    return send_from_directory(app.config['IMAGES_FOLDER'], filename)
+    file_data = get_image_from_db(filename)
+    if file_data:
+        return send_file(io.BytesIO(file_data), mimetype='image/jpeg', as_attachment=True, attachment_filename=filename)
+    return "Image not found", 404
 
 @app.route('/gallery_img/<filename>')
 def serve_gallery_image(filename):
     return send_from_directory(app.config['GALLERY_FOLDER'], filename)
+
+# Initialize the db
+init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)

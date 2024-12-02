@@ -1,6 +1,15 @@
 import pandas as pd
 import ast
 import sys
+import sqlite3
+import psycopg2
+import os
+
+# Database connection details
+DB_HOST = os.environ.get('DB_HOST')
+DB_NAME = os.environ.get('DB_NAME')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
 
 def load_csv(image_name):
     data = pd.read_csv(image_name, header='infer') 
@@ -132,6 +141,48 @@ def text_process(image_name):
         'Text_Message': [message]
     })
 
+    return df_message
+
+def filter_single_db(image_name):
+    # instead of loading from a csv we will load from a database
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    data = pd.read_sql_query("SELECT * FROM lineresults WHERE filename = ?", conn, params=(image_name,))
+    all_data = pd.read_sql_query("SELECT * FROM lineresults", conn)
+    all_data_result = pd.read_sql_query("SELECT * FROM results", conn)
+    # That should return all the rows with the filename
+    conn.close()
+    # Rename columns bounding_box to Bounding Box and line_text to Line Text
+    data = data.rename(columns={"bounding_box": "Bounding Box", "line_text": "Line Text"})
+    print("DATA: ",data)
+    print("ALL lineresults DATA: ", all_data)
+    print("All results data: ",all_data_result)
+    xy_col = create_xycol(data)
+    #display(xy_col)
+    data = merge_data_xy(data, xy_col)
+    df_filtered = filter_30(data)
+    df_filtered = remove_bottom(df_filtered)
+    df_filtered = remove_extra(df_filtered)
+    df_filtered = remove_date(df_filtered)
+    return df_filtered
+
+def text_process_db(image_name):
+    data = filter_single_db(image_name)
+    sender = data.iloc[0]['Line Text']
+
+    # Step 2: Concatenate the remaining rows' line_text into the message (excluding the first row)
+    message = " ".join(data.iloc[1:]['Line Text'])
+
+    # Step 3: Create the new DataFrame
+    df_message = pd.DataFrame({
+        'Sender': [sender],
+        'Text_Message': [message]
+    })
+    print("DF MESSAGE: ",df_message)
     return df_message
 
 if __name__ == "__main__":
