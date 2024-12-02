@@ -47,29 +47,29 @@ def init_db():
         password=DB_PASSWORD
     )
     cursor = conn.cursor()
-    cursor.execute(''' 
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS images (
             filename TEXT NOT NULL PRIMARY KEY,
-            data BLOB NOT NULL
-        )   
+            data BYTEA NOT NULL
+        )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             filename TEXT NOT NULL,
             line_text TEXT,
-            bounding_box TEXT,
+            bounding_box JSON,
             word_text TEXT,
-            word_bounding_polygon TEXT,
+            word_bounding_polygon JSON,
             confidence REAL
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lineresults (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             filename TEXT NOT NULL,
             line_text TEXT,
-            bounding_box TEXT
+            bounding_box JSON
         )
     ''')
     conn.commit()
