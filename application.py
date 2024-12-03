@@ -30,38 +30,65 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
 
 # Database connection details
-DB_HOST = os.environ.get('DB_HOST')
-DB_NAME = os.environ.get('DB_NAME')
-DB_USER = os.environ.get('DB_USER')
-DB_PASSWORD = os.environ.get('DB_PASSWORD')
+# DB_HOST = os.environ.get('DB_HOST')
+# DB_NAME = os.environ.get('DB_NAME')
+# DB_USER = os.environ.get('DB_USER')
+# DB_PASSWORD = os.environ.get('DB_PASSWORD')
 
 # Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def init_db():
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    # cursor = conn.cursor()
+    # cursor.execute('''
+    #     DROP TABLE IF EXISTS images CASCADE;
+    #     DROP TABLE IF EXISTS results CASCADE;
+    #     DROP TABLE IF EXISTS lineresults CASCADE;
+    # ''')
+    # cursor.execute('''
+    #     CREATE TABLE IF NOT EXISTS images (
+    #         filename TEXT NOT NULL PRIMARY KEY,
+    #         data BYTEA NOT NULL
+    #     )
+    # ''')
+    # cursor.execute('''
+    #     CREATE TABLE IF NOT EXISTS results (
+    #         id SERIAL PRIMARY KEY,
+    #         filename TEXT NOT NULL,
+    #         line_text TEXT,
+    #         bounding_box TEXT,
+    #         word_text TEXT,
+    #         word_bounding_polygon TEXT,
+    #         confidence REAL
+    #     )
+    # ''')
+    # cursor.execute('''
+    #     CREATE TABLE IF NOT EXISTS lineresults (
+    #         id SERIAL PRIMARY KEY,
+    #         filename TEXT NOT NULL,
+    #         line_text TEXT,
+    #         bounding_box TEXT
+    #     )
+    # ''')
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
     cursor.execute('''
-        DROP TABLE IF EXISTS images CASCADE;
-        DROP TABLE IF EXISTS results CASCADE;
-        DROP TABLE IF EXISTS lineresults CASCADE;
-    ''')
-    cursor.execute('''
         CREATE TABLE IF NOT EXISTS images (
-            filename TEXT NOT NULL PRIMARY KEY,
-            data BYTEA NOT NULL
+            filename TEXT PRIMARY KEY,
+            data BLOB NOT NULL
         )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS results (
-            id SERIAL PRIMARY KEY,
-            filename TEXT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
             line_text TEXT,
             bounding_box TEXT,
             word_text TEXT,
@@ -71,8 +98,8 @@ def init_db():
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lineresults (
-            id SERIAL PRIMARY KEY,
-            filename TEXT NOT NULL,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
             line_text TEXT,
             bounding_box TEXT
         )
@@ -82,27 +109,30 @@ def init_db():
 
 
 def store_image_in_db(filename, data):
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO images (filename, data) VALUES (%s, %s)', (filename, data))
+    # cursor.execute('INSERT INTO images (filename, data) VALUES (%s, %s)', (filename, data))
+    cursor.execute('INSERT INTO images (filename, data) VALUES (?, ?)', (filename, data))
     conn.commit()
     conn.close()
 
 # Retrieve image from the database
 def get_image_from_db(filename):
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT data FROM images WHERE filename = %s', (filename,))
+    cursor.execute('SELECT data FROM images WHERE filename = ?', (filename,))
     row = cursor.fetchone()
     conn.close()
     if row:
@@ -110,12 +140,13 @@ def get_image_from_db(filename):
     return None
 
 def clear_db():
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
     cursor.execute('DELETE FROM images')
     cursor.execute('DELETE FROM results')
@@ -133,14 +164,15 @@ def image_to_text(filename):
     print("Image retrieved successfully from the database!")
 
     # Check if the image name already has a result in the results database
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM results WHERE filename = %s', (filename,))
+    cursor.execute('SELECT * FROM results WHERE filename = ?', (filename,))
     if cursor.fetchone():
         print("Results already exist for this image")
         return
@@ -168,12 +200,13 @@ def image_to_text(filename):
     process_result(result, filename)
 
 def process_result(result, filename):
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    # conn = psycopg2.connect(
+    #     host=DB_HOST,
+    #     database=DB_NAME,
+    #     user=DB_USER,
+    #     password=DB_PASSWORD
+    # )
+    conn = sqlite3.connect('images.db')
     cursor = conn.cursor()
     # Example processing logic
     if result.read is not None:
@@ -182,7 +215,7 @@ def process_result(result, filename):
             for word in line.words:
                 cursor.execute('''
                     INSERT INTO results (filename, line_text, bounding_box, word_text, word_bounding_polygon, confidence)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', (
                     filename,
                     line.text,
@@ -198,7 +231,7 @@ def process_result(result, filename):
         for line in result.read.blocks[0].lines:
             cursor.execute('''
                 INSERT INTO lineresults (filename, line_text, bounding_box)
-                VALUES (%s, %s, %s)
+                VALUES (?, ?, ?)
             ''', (
                 filename,
                 line.text,
@@ -328,11 +361,88 @@ def gallery():
 
 @app.route("/explain/<filename>")
 def explain(filename):
-    message = session.get('message', {})  # Retrieve the message from the session
-    classification = "Example Classification"
-    explanation = message
-    # explanation = generate_explanation(message)  # Generate explanation using the message dictionary
-    return render_template("explain.html", filename=filename, classification=classification, explanation=explanation)
+    print("Gallery route accessed")  # Debugging print statement
+    gallery_imgs = os.listdir(app.config['GALLERY_FOLDER'])[:20]
+    # print(f"Gallery images: {gallery_imgs}")  # Debugging print statement
+    # Randomize the order of the images
+    random.shuffle(gallery_imgs)
+    # print(f"Gallery images after shuffling: {gallery_imgs}")  # Debugging print statement
+    # Read the csv file to get the image bounding boxes
+    quote_path = os.path.join('quote_results', 'image_1_quote.csv')
+
+    # Read the examples.csv file
+    examples_csv_path = os.path.join('gallery_explan', 'examples.csv')
+    df = pd.read_csv(examples_csv_path)
+    print("CSV file read successfully")  # Debugging print statement
+    # print(df.head())  # Print the first few rows of the DataFrame
+
+    # Create a dictionary to store classification and explanation for each image
+    image_info = {}
+    for image_file in gallery_imgs:
+        # print(f"Processing image file: {image_file}")  # Debugging print statement
+        # Convert both to lowercase and strip any leading/trailing whitespace
+        image_file_clean = image_file.strip().lower()
+        df["Image_Name"] = df["Image_Name"].str.strip().str.lower()
+        # Search for the image name in the "Image_Name" column
+        row = df[df["Image_Name"] == image_file_clean]
+        # print(f"Matching row for {image_file}: {row}")  # Debugging print statement
+        if not row.empty:
+            classification = row["Classification"].values[0]
+            explanation = row["Explanation"].values[0]
+            quote_1_ex = row["Quote_1_EX"].values[0]
+            quote_2_ex = row["Quote_2_EX"].values[0]
+            is_sender = row["is_sender"].values[0]
+            sender_ex = row["is_sender_EX"].values[0]
+            quote_1 = row["Quote_1"].values[0]
+            quote_2 = row["Quote_2"].values[0]
+            sender = row["Sender"].values[0]
+            # get the bounding boxes for quote_1, quote_2, and sender
+            # read from csv image_i_quote.csv
+            # remove the suffix from the image name
+            image_name = os.path.splitext(image_file_clean)[0]
+            quote_path = os.path.join('quote_results', f"{image_name}_quote.csv")
+            # print(f"Reading bounding boxes fro m {quote_path}")  # Debugging print statement
+            quote_df = pd.read_csv(quote_path)
+            # print(quote_df)
+            # Get the bounding boxes for quote_1, quote_2, and sender
+            quote_1_bound = np.array(ast.literal_eval(quote_df[quote_df["quote_label"] == "quote_1"]["bounding_box"].values[0]))
+            quote_2_bound = np.array(ast.literal_eval(quote_df[quote_df["quote_label"] == "quote_2"]["bounding_box"].values[0]))
+            if is_sender == "Yes":
+                sender_bound = np.array(ast.literal_eval(quote_df[quote_df["quote_label"] == "sender"]["bounding_box"].values[0]))
+            else:
+                sender_bound = None
+            # Convert bounding boxes to lists to ensure they are JSON serializable
+            if quote_1_bound is not None:
+                quote_1_bound = quote_1_bound.tolist()
+                # quote_1_bound = [list(point.values()) for point in quote_1_bound]
+            if quote_2_bound is not None:
+                # quote_2_bound = [list(point.values()) for point in quote_2_bound]
+                quote_2_bound = quote_2_bound.tolist()
+            if sender_bound is not None:
+                # sender_bound = [list(point.values()) for point in sender_bound]
+                sender_bound = sender_bound.tolist()
+
+            # print(f"Bounding boxes for {image_file}: quote_1: {quote_1_bound}, quote_2: {quote_2_bound}, sender: {sender_bound}")  # Debugging print statement
+            image_info[image_file] = {
+                "classification": classification,
+                "explanation": explanation,
+                "quote_1_bound": quote_1_bound,
+                "quote_2_bound": quote_2_bound,
+                "sender_bound": sender_bound,
+                "is_sender": is_sender,
+                "quote_1_ex": quote_1_ex,
+                "quote_2_ex": quote_2_ex,
+                "sender_ex": sender_ex,
+                "quote_1": quote_1,
+                "quote_2": quote_2,
+                "sender": sender
+            }
+    
+    # get the index of image with filename
+    image_index = gallery_imgs.index(filename)
+
+    # print(image_info)
+    return render_template("explain.html", gallery_imgs=gallery_imgs, image_info=image_info, image_index=image_index)
 
 @app.route('/images/<filename>')
 def serve_image(filename):
@@ -349,5 +459,4 @@ def serve_gallery_image(filename):
 init_db()
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)

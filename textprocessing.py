@@ -2,7 +2,6 @@ import pandas as pd
 import ast
 import sys
 import sqlite3
-import psycopg2
 import os
 
 # Database connection details
@@ -145,13 +144,8 @@ def text_process(image_name):
 
 def filter_single_db(image_name):
     # instead of loading from a csv we will load from a database
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
-    data = pd.read_sql_query("SELECT * FROM lineresults WHERE filename = %s", conn, params=(image_name,))
+    conn = sqlite3.connect('images.db')
+    data = pd.read_sql_query("SELECT * FROM lineresults WHERE filename = ?", conn, params=(image_name,))
     all_data = pd.read_sql_query("SELECT * FROM lineresults", conn)
     all_data_result = pd.read_sql_query("SELECT * FROM results", conn)
     # That should return all the rows with the filename
